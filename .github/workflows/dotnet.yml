@@ -9,20 +9,46 @@ on:
   pull_request:
     branches: [ "main" ]
 
-jobs:
-  build:
 
+env:
+    AZURE_WEBAPP_NAME: foot-tweets-web-app
+    AZURE_WEBAPP_PACKAGE_PATH: "./publish"
+
+jobs:
+  build_and_deploy:
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v3
+
     - name: Setup .NET
       uses: actions/setup-dotnet@v3
       with:
         dotnet-version: 6.0.x
+
     - name: Restore dependencies
       run: dotnet restore
+
     - name: Build
       run: dotnet build --no-restore
+
+    - name: Publish
+      run: dotnet publish MediaService/MediaService.csproj --configuration Release --output './publish'
+ 
+
     - name: Test
       run: dotnet test --no-build --verbosity normal
+
+    - name: Build and push Docker image
+      run: |
+        docker build -t zakaria469980/testing .
+        docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
+        docker push zakaria469980/testing:latest
+
+    - name: Deployment
+      uses: azure/webapps-deploy@v2
+      with:
+        app-name: ${{ env.AZURE_WEBAPP_NAME }}
+        publish-profile: ${{ secrets.AZURE_PUBLISH_PROFILE }}
+        package: "${{ env.AZURE_WEBAPP_PACKAGE_PATH }}"
+
